@@ -1,7 +1,7 @@
 # Changelog
 
 SoftwareTeam 基于 OpenRig 0.6.11，沿用版本号从 0.6.12 开始记录本仓库的变更。
-更早的上游历史保留在 `docs/releases/`。本次发布渠道为 GitHub Releases。
+更早的上游历史保留在 `docs/releases/`。本次发布渠道为 GitHub Releases，标记为预发布。
 
 ## [0.6.12] - 2026-10-19
 
@@ -18,10 +18,16 @@ SoftwareTeam 基于 OpenRig 0.6.11，沿用版本号从 0.6.12 开始记录本�
 ### Changed
 
 - README 以本项目的软件团队入口为主，保留 OpenRig 来源和既有终端。
+- 保留已有 OpenRig 实例的迁移入口，迁移细节统一维护在现有实例目录参考文档中。
 - 初始化本仓库的 Git 历史，主分支使用 `main`。
+
+### Fixed
+
+- 启动环境回归测试使用独立临时 Node 路径，不再依赖开发机的 Node 安装位置。
 
 ### Known Limitations
 
+- 串行复测仍有 5 项 daemon 测试失败：原生 tmux 工作目录、输出捕获、UTF-8 管道，以及 stub-runner 事件顺序与确定性。
 - 专家 SOP 为待人类审定的候选稿。
 - 各岗位 MCP、运维技能来源、部署环境和云资源预算待配置。
 - 证据实质、人类审批和代码版本适用性仍由专家与调度检查，未实现强制认证。

@@ -87,6 +87,8 @@ in the catalog root, such as `catalog.yaml`, still makes the whole catalog unava
 
 For a pre-0.5.9 home, use the `openrig-upgrade` skill's
 `migrate-telemetry-state-0.5.9.mjs` helper as an Agent-Operated Migration. Its
+canonical telemetry roots are `state/context-usage` and `state/provider-usage`;
+the selected System World is `context/system/system-world.yaml`. Its
 order is plan → `--apply-state` → separately activate the target runtime →
 paired new-root samples newer than any bounded legacy tail → `--verify` → the
 non-destructive finalizer `--apply-library`. During activation, runtime readers

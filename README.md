@@ -69,6 +69,8 @@ MCP、运维外部技能来源、云资源和目标环境仍待落实，详见�
 工作流本身尚不提供这些判断的强制认证，也不会自动发现代码版本变化。
 
 OpenRig 的数据库和会话状态继续使用其实例目录；项目知识、交接和工作证据保存在本仓库。
+从旧版 OpenRig 迁移已有实例时，先阅读 [实例目录与迁移约定](docs/reference/instance-layout.md)，
+由 [升级技能](skills/_canonical/core/openrig-upgrade/SKILL.md) 核对和执行迁移。
 全新安装若因未生成的 workspace bin 导致 `npm ci` 失败，可先执行
 `npm ci --bin-links=false`，再执行
 `npm rebuild typescript vitest vite tsx esbuild --bin-links=true` 恢复构建工具入口。
@@ -84,4 +86,5 @@ OpenRig 的数据库和会话状态继续使用其实例目录；项目知识、
 许可证为 [Apache-2.0](LICENSE)。
 
 本仓库版本发布见 [GitHub Releases](https://github.com/lw-liuwang/SoftwareTeam/releases)，
-变更记录见 [CHANGELOG.md](CHANGELOG.md)。当前首次源码发布版本为 `v0.6.12`。
+变更记录见 [CHANGELOG.md](CHANGELOG.md)。当前首次源码预发布版本为 `v0.6.12`，
+未通过的检查及使用边界见 [发布说明](docs/releases/v0.6.12.md)。

@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, readlinkSync, readdirSync, realpathSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readlinkSync, readdirSync, realpathSync, rmSync, symlinkSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { execFile } from "node:child_process";
@@ -74,10 +74,12 @@ it.each(["claude", "codex"])("D: nushell retains the previous literal %s command
   expect(command).not.toContain('"$PATH"'); expect(f.warn).toHaveBeenCalledTimes(1);
 });
 it.each(["fresh", "resume", "fork"] as const)("C: %s uses the probe's separate Node interpreter while preserving user PATH", async kind => {
-  const f = fixture(), nodeBin = path.dirname(process.execPath);
+  const f = fixture(), nodeBin = path.join(f.root, "probe-node");
+  mkdirSync(nodeBin);
+  symlinkSync(process.execPath, path.join(nodeBin, "node"));
   expect(["/usr/bin", "/bin", f.shared, f.runtime]).not.toContain(nodeBin);
   f.exe(path.join(f.runtime, "codex"), `#!/usr/bin/env node\nif(process.argv.includes('--help'))console.log('Usage: codex [OPTIONS]\\n  --no-daemon');else console.log(JSON.stringify({started:true,node:process.execPath,path:process.env.PATH}));\n`);
-  // There is no Node in the pane PATH. The capability query really executes this npm-style entry.
+  // The pane finds a fake Node first; the probe and launch must use the separate interpreter.
   f.env.PATH = [f.runtime, nodeBin, f.shared, "/usr/bin", "/bin"].join(":");
   const launch = new (SeatLaunchEnvironment as any)(f.tmux, f.env, f.root, f.cli) as SeatLaunchEnvironment;
   const adapter = new CodexRuntimeAdapter({ tmux: f.tmux as any, seatLaunchEnvironment: launch, launchPath: f.env.PATH,
@@ -90,7 +92,7 @@ it.each(["fresh", "resume", "fork"] as const)("C: %s uses the probe's separate N
   const result = await adapter.launchHarness(binding, { name: "seat", ...(kind === "resume" ? { resumeToken: "old" } : kind === "fork" ? { forkSource: { kind: "native_id", value: "parent" } } : {}) });
   expect(result.ok).toBe(true);
   const command = (f.tmux.sendShellCommand.mock.calls.at(-1) as unknown as string[])[1]!;
-  const userPath = "/usr/bin:/bin";
+  const userPath = `${f.user}:/usr/bin:/bin`;
   const { stdout } = await exec("/bin/bash", ["--noprofile", "--norc", "-c", command], { cwd: f.cwd, env: { ...f.env, PATH: userPath }, timeout: 5000 });
   const observed = JSON.parse(stdout); expect(observed.started).toBe(true); expect(observed.node).toBe(process.execPath);
   expect(observed.path.split(":").slice(1).join(":")).toBe(userPath);

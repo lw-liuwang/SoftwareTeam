@@ -1,5 +1,31 @@
 # Release Notes
 
+## SoftwareTeam Releases
+
+SoftwareTeam starts its own release history at `v0.6.12`, based on OpenRig 0.6.11.
+The target repository is `lw-liuwang/SoftwareTeam`. Current releases publish a
+Git tag and GitHub source release; publishing the upstream npm package is a
+separate action and is not part of this flow.
+
+Update `CHANGELOG.md`, the release note and workspace versions, run the checks,
+and commit the reviewed source before publishing:
+
+```bash
+git push -u origin main
+git tag -a vX.Y.Z -m "SoftwareTeam vX.Y.Z"
+git push origin vX.Y.Z
+gh release create vX.Y.Z --repo lw-liuwang/SoftwareTeam --verify-tag \
+  --title "SoftwareTeam vX.Y.Z" --notes-file docs/releases/vX.Y.Z.md
+```
+
+Keep verification limits and the candidate status of unapproved team SOPs explicit.
+Use `--prerelease` when publishing a preview with unresolved verification failures,
+and list those failures in its release note. Version `v0.6.12` is such a preview.
+The following OpenRig notes and npm artifact procedure are retained as upstream
+history and as reference for any separately authorized npm release.
+
+## Upstream OpenRig Procedure
+
 This directory is the lightweight release history for OpenRig.
 
 It is intentionally simpler than a monolithic `CHANGELOG.md`.

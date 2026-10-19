@@ -174,7 +174,9 @@ describe("openrig-upgrade stays agent-driven", () => {
     const readme = fs.readFileSync(path.join(repoRoot, "README.md"), "utf8");
     const skill = fs.readFileSync(skillPath, "utf8");
     const reference = fs.readFileSync(path.join(repoRoot, "docs/reference/instance-layout.md"), "utf8");
-    for (const text of [readme, skill]) {
+    expect(readme).toContain("docs/reference/instance-layout.md");
+    expect(readme).toContain("skills/_canonical/core/openrig-upgrade/SKILL.md");
+    for (const text of [reference, skill]) {
       expect(text).toContain("migrate-telemetry-state-0.5.9.mjs");
       expect(text).toContain("Agent-Operated Migration");
       expect(text).toContain("--apply-state");
@@ -187,7 +189,7 @@ describe("openrig-upgrade stays agent-driven", () => {
       expect(text).toMatch(/non-destructive\s+finalizer/i);
       expect(text).toMatch(/custom context-library root[^.]*stable/i);
     }
-    for (const text of [readme, skill, reference]) {
+    for (const text of [skill, reference]) {
       expect(text).toMatch(/paired new-root|newer paired|newer samples.*both new state roots/i);
       expect(text).toMatch(/tail bytes|exact tail bytes|accepted tail\s+bytes|accepted tails/i);
       expect(text).toContain("--help");
